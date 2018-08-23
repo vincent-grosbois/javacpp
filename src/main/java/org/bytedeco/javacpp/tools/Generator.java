@@ -87,6 +87,7 @@ import org.bytedeco.javacpp.annotation.Raw;
 import org.bytedeco.javacpp.annotation.ValueGetter;
 import org.bytedeco.javacpp.annotation.ValueSetter;
 import org.bytedeco.javacpp.annotation.Virtual;
+import org.bytedeco.javacpp.annotation.ForceArrayCritical;
 
 /**
  * The Generator is where all the C++ source code that we need gets generated.
@@ -127,6 +128,7 @@ import org.bytedeco.javacpp.annotation.Virtual;
  * @see Raw
  * @see ValueGetter
  * @see ValueSetter
+ * @see ForceArrayCritical
  *
  * @author Samuel Audet
  */
@@ -1872,7 +1874,7 @@ public class Generator {
                     out.print("arg" + j + " == NULL ? NULL : ");
                     String s = methodInfo.parameterTypes[j].getComponentType().getName();
                     if (methodInfo.valueGetter || methodInfo.valueSetter ||
-                            methodInfo.memberGetter || methodInfo.memberSetter) {
+                            methodInfo.memberGetter || methodInfo.memberSetter || methodInfo.forceArrayCritical) {
                         out.println("(j" + s + "*)env->GetPrimitiveArrayCritical(arg" + j + ", NULL);");
                     } else {
                         s = Character.toUpperCase(s.charAt(0)) + s.substring(1);
@@ -2503,7 +2505,7 @@ public class Generator {
                 }
                 out.print("    if (arg" + j + " != NULL) ");
                 if (methodInfo.valueGetter || methodInfo.valueSetter ||
-                        methodInfo.memberGetter || methodInfo.memberSetter) {
+                        methodInfo.memberGetter || methodInfo.memberSetter || methodInfo.forceArrayCritical) {
                     out.println("env->ReleasePrimitiveArrayCritical(arg" + j + ", ptr" + j + ", " + releaseArrayFlag + ");");
                 } else {
                     String componentType = methodInfo.parameterTypes[j].getComponentType().getName();
@@ -3250,6 +3252,8 @@ public class Generator {
                 info.throwsException = exceptions.length > 0 ? exceptions[0] : RuntimeException.class;
             }
         }
+
+        info.forceArrayCritical = forceArrayCritical(info.cls, info.method);
         return info;
     }
 
@@ -3267,6 +3271,12 @@ public class Generator {
             }
         }
         return noException;
+    }
+
+    static boolean forceArrayCritical(Class<?> cls, Method method) {
+        return baseClasses.contains(cls) ||
+                method.isAnnotationPresent(ForceArrayCritical.class) ||
+                cls.isAnnotationPresent(ForceArrayCritical.class);
     }
 
     AdapterInformation adapterInformation(boolean out, MethodInformation methodInfo, int j) {
